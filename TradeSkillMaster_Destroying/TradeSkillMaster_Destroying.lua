@@ -36,6 +36,7 @@ local savedDBDefaults = {
 		sortBy = "suggestion",
 		enableSuggestions = true,
 		discountPercentages = nil,
+		showOnlyDestroy = false,
 	},
 }
 

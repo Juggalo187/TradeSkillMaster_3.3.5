@@ -40,15 +40,15 @@ function Options:LoadDiscountSettings(container)
                 height = 8,
             },
             {
-                type = "Label",
-                text = "|cFFFFFF00Discounts apply to auction data when comparing AH sales vs destruction.|r",
-                relativeWidth = 1,
-            },
-            {
-                type = "Label", 
-                text = "|cFFFFFF00Higher discounts = more conservative AH value estimates|r",
-                relativeWidth = 1,
-            },
+				type = "Label",
+				text = "|cFFFFFF00Higher discounts = more aggressive destruction recommendations|r",
+				relativeWidth = 1,
+			},
+			{
+				type = "Label", 
+				text = "|cFFFFFF00Set to 0% for most conservative approach (use full AH value)|r",
+				relativeWidth = 1,
+			},
             {
                 type = "Spacer",
                 relativeWidth = 1,
@@ -104,7 +104,7 @@ function Options:LoadDiscountSettings(container)
 						return value or 0
 					end
 				},
-				tooltip = "Discount applied to AH value of " .. profession.name:lower() .. " when data is " .. ageCat.name:lower() .. "\n\nExample: 20% discount means 100g AH value becomes 80g for comparison\n\nSet to 0% for no discount (use full AH value)",
+				tooltip = "Discount applied to AH value of " .. profession.name:lower() .. " when data is " .. ageCat.name:lower() .. "\n\nExample: 20% discount means 100g AH value becomes 80g for comparison\n\nHigher discounts = more aggressive destruction recommendations\nSet to 0% for most conservative approach (use full AH value)",
 				callback = function()
 					-- Set the discount changed flag to force cache refresh
 					if TSM.GUI and TSM.GUI.private then

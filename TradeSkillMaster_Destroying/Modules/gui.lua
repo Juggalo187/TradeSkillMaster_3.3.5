@@ -13,7 +13,7 @@ local GUI = TSM:NewModule("GUI", "AceEvent-3.0")
 -- loads the localization table --
 local L = LibStub("AceLocale-3.0"):GetLocale("TradeSkillMaster_Destroying") 
 
-local private = {data={}, ignore={}, discountSettingsChanged=false, showOnlyDestroy=false}
+local private = {data={}, ignore={}, discountSettingsChanged=false}
 TSMAPI:RegisterForTracing(private, "TSM_Destroying.GUI_private")
 
 ---
@@ -123,7 +123,7 @@ function private:ApplyFilters(stData)
     end
     
     -- Apply Destroy Only filter
-    if private.showOnlyDestroy then
+    if TSM.db.profile.showOnlyDestroy then
         local filteredData = {}
     for _, data in ipairs(stData) do
         -- Calculate values directly without relying on cache
@@ -381,10 +381,9 @@ function private:CreateDestroyingFrame()
     sortBtn:SetWidth(120)
     sortBtn:SetHeight(20)
     sortBtn:SetText("Sort: Suggestion")
-    -- In the CreateDestroyingFrame function, update the sort button callback:
 	sortBtn:SetScript("OnClick", function()
     -- If we're in Destroy Only mode, only allow name and quantity sorting
-    if private.showOnlyDestroy then
+    if TSM.db.profile.showOnlyDestroy then
         if TSM.db.profile.sortBy == "name" then
             TSM.db.profile.sortBy = "quantity"
             sortBtn:SetText("Sort: Quantity")
@@ -425,10 +424,17 @@ end)
 	destroyOnlyBtn:SetPoint("TOPLEFT", sortBtn, "TOPRIGHT", 5, 0)
 	destroyOnlyBtn:SetWidth(100)
 	destroyOnlyBtn:SetHeight(20)
-	destroyOnlyBtn:SetText("Show: All")
+	-- Initialize button text from saved setting
+	if TSM.db.profile.showOnlyDestroy then
+		destroyOnlyBtn:SetText("Show: Destroy Only")
+	else
+		destroyOnlyBtn:SetText("Show: All")
+	end
+	
 	destroyOnlyBtn:SetScript("OnClick", function()
-		private.showOnlyDestroy = not private.showOnlyDestroy
-		if private.showOnlyDestroy then
+		TSM.db.profile.showOnlyDestroy = not TSM.db.profile.showOnlyDestroy
+		
+		if TSM.db.profile.showOnlyDestroy then
 			destroyOnlyBtn:SetText("Show: Destroy Only")
 			-- If current sort is suggestion, switch to name when entering Destroy Only mode
 			if TSM.db.profile.sortBy == "suggestion" then
