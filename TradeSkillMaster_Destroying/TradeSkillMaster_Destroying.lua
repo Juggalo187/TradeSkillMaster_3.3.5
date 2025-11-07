@@ -37,6 +37,7 @@ local savedDBDefaults = {
 		enableSuggestions = true,
 		discountPercentages = nil,
 		showOnlyDestroy = false,
+		manualOverrides = {},
 	},
 }
 
@@ -77,43 +78,63 @@ function TSM:RegisterModule()
 end
 
 function TSM:GetDataAge(itemString)
-    if not TSMAPI or not TSMAPI.GetItemID then 
+    if not TSMAPI then 
         return 999 
     end
     
-    local itemID = TSMAPI:GetItemID(itemString)
-    if not itemID then 
-        return 999 
-    end
-    
-    if not TSM.data then
+    if not TradeSkillMaster_AuctionDBDB then
         return 999
     end
     
-    local itemData = TSM.data[itemID]
-    if not itemData then 
-        return 999 
+    local realm = GetRealmName()
+    local faction = UnitFactionGroup("player")
+    local factionrealmKey = faction .. " - " .. realm
+    
+    if not TradeSkillMaster_AuctionDBDB.factionrealm then
+        return 999
     end
     
-    if not itemData.lastScan then 
-        return 999 
+    local factionrealmData = TradeSkillMaster_AuctionDBDB.factionrealm[factionrealmKey]
+    if not factionrealmData then
+        return 999
+    end
+    
+    local lastCompleteScan = factionrealmData.lastCompleteScan
+    if not lastCompleteScan or lastCompleteScan == 0 then
+        return 999
     end
     
     local currentTime = time()
-    local scanTime = itemData.lastScan
-    local ageInSeconds = currentTime - scanTime
-    local ageInDays = floor(ageInSeconds / (60 * 60 * 24))
+    local ageInSeconds = currentTime - lastCompleteScan
     
-    return ageInDays
+    return ageInSeconds
 end
 
-function TSM:GetDataAgeCategory(ageInDays)
-    if ageInDays <= 2 then
-        return "fresh"
-    elseif ageInDays <= 7 then
-        return "warning"
+function TSM:GetDataAgeCategory(ageInSeconds)
+    if not ageInSeconds or ageInSeconds == 999 then
+        return "old", "No data"
+    end
+    
+    local ageInMinutes = ageInSeconds / 60
+    local ageInHours = ageInMinutes / 60
+    local ageInDays = ageInHours / 24
+    
+    -- Format the time display
+    local ageText
+    if ageInDays >= 1 then
+        ageText = floor(ageInDays) .. " days"
+    elseif ageInHours >= 1 then
+        ageText = floor(ageInHours) .. " hours"
     else
-        return "old"
+        ageText = max(1, floor(ageInMinutes)) .. " minutes"
+    end
+    
+    if ageInDays <= 2 then
+        return "fresh", ageText
+    elseif ageInDays <= 7 then
+        return "warning", ageText
+    else
+        return "old", ageText
     end
 end
 
@@ -166,9 +187,16 @@ function TSM:GetDiscountedAuctionValue(itemString, profession)
         return 0 
     end
     
-    -- Get data age
+    -- Get data age - handle case where AuctionDB might not be available
     local ageInDays = TSM:GetDataAge(itemString)
-    local ageCategory = TSM:GetDataAgeCategory(ageInDays)
+    local ageCategory
+    
+    if ageInDays == 999 then
+        -- No AuctionDB data available, use default "old" category
+        ageCategory = "old"
+    else
+        ageCategory = TSM:GetDataAgeCategory(ageInDays)
+    end
     
     -- Get discount multiplier (1 - discount percentage)
     local multiplier = TSM:GetAgeBasedDiscount(ageCategory, profession)
@@ -430,4 +458,57 @@ function TSM:IsDestroyable(bag, slot, itemString)
         end
     end
     return unpack(TSM.destroyCache[itemString] or {})
+end
+
+function TSM:SetManualOverride(itemString, action)
+    TSM.db.profile.manualOverrides = TSM.db.profile.manualOverrides or {}
+    TSM.db.profile.manualOverrides[itemString] = action
+end
+
+function TSM:GetManualOverride(itemString)
+    TSM.db.profile.manualOverrides = TSM.db.profile.manualOverrides or {}
+    return TSM.db.profile.manualOverrides[itemString]
+end
+
+function TSM:ClearManualOverride(itemString)
+    TSM.db.profile.manualOverrides = TSM.db.profile.manualOverrides or {}
+    TSM.db.profile.manualOverrides[itemString] = nil
+end
+
+function TSM:CycleManualOverride(itemString, currentRecommendedAction)
+    local actions
+    if TSM.db.profile.enableSuggestions then
+        -- With suggestions enabled, include "auto" in the cycle
+        actions = {"destroy", "auction", "vendor", "auto"}
+    else
+        -- With suggestions disabled, only cycle through manual actions
+        actions = {"destroy", "auction", "vendor"}
+    end
+    
+    local currentOverride = TSM:GetManualOverride(itemString)
+    
+    if not currentOverride then
+        -- No override yet, set to first action
+        TSM:SetManualOverride(itemString, actions[1])
+        return actions[1]
+    else
+        local currentIndex = 1
+        for i, action in ipairs(actions) do
+            if action == currentOverride then
+                currentIndex = i
+                break
+            end
+        end
+        
+        local nextIndex = (currentIndex % #actions) + 1
+        local nextAction = actions[nextIndex]
+        
+        if nextAction == "auto" then
+            TSM:ClearManualOverride(itemString)
+            return "auto"
+        else
+            TSM:SetManualOverride(itemString, nextAction)
+            return nextAction
+        end
+    end
 end

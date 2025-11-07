@@ -13,15 +13,15 @@ local GUI = TSM:NewModule("GUI", "AceEvent-3.0")
 -- loads the localization table --
 local L = LibStub("AceLocale-3.0"):GetLocale("TradeSkillMaster_Destroying") 
 
-local private = {data={}, ignore={}, discountSettingsChanged=false}
+local private = {data={}, ignore={}, discountSettingsChanged=false, tooltipCache={}}
 TSMAPI:RegisterForTracing(private, "TSM_Destroying.GUI_private")
 
 ---
 function private:AddAgeToTooltip(cached, gameTooltip)
     if not cached or not cached.itemString then return end
     
-    local ageInDays = TSM:GetDataAge(cached.itemString)
-    local ageCategory = TSM:GetDataAgeCategory(ageInDays)
+    local ageInSeconds = TSM:GetDataAge(cached.itemString)
+    local ageCategory, ageText = TSM:GetDataAgeCategory(ageInSeconds)
     
     local color, statusText
     if ageCategory == "fresh" then
@@ -36,7 +36,7 @@ function private:AddAgeToTooltip(cached, gameTooltip)
     end
     
     gameTooltip:AddLine(" ")
-    gameTooltip:AddDoubleLine("Auction Data Age:", color .. statusText .. " (" .. ageInDays .. " days)|r", 1, 1, 1, 1, 1, 1)
+    gameTooltip:AddDoubleLine("Auction Data Age:", color .. statusText .. " (" .. ageText .. ")|r", 1, 1, 1, 1, 1, 1)
     
     if ageCategory == "warning" then
         gameTooltip:AddLine("|cFFFFFF00Consider rescanning for accurate prices|r", 1, 1, 1, true)
@@ -109,7 +109,7 @@ function private:ApplyFilters(stData)
     local sortBy = TSM.db.profile.sortBy or "suggestion"
     
     -- If we're in Destroy Only mode, default to quantity sorting for practicality
-    if private.showOnlyDestroy and sortBy == "suggestion" then
+    if TSM.db.profile.showOnlyDestroy and sortBy == "suggestion" then
         sortBy = "quantity"
     end
 	
@@ -123,67 +123,85 @@ function private:ApplyFilters(stData)
     end
     
     -- Apply Destroy Only filter
-    if TSM.db.profile.showOnlyDestroy then
-        local filteredData = {}
-    for _, data in ipairs(stData) do
-        -- Calculate values directly without relying on cache
-        local auctionValueFunc = TSMAPI:ParseCustomPrice("DBMarket")
-        local auctionValue = auctionValueFunc and auctionValueFunc(data.itemString) or 0
-        local hasAuctionValue = auctionValue > 0
-        
-        -- Get discounted AH value
-        local discountedAH = auctionValue
-        if hasAuctionValue then
-            if data.spell == GetSpellInfo(TSM.spells.disenchant) then
-                discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "disenchant")
-            elseif data.spell == GetSpellInfo(TSM.spells.milling) then
-                discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "milling") 
-            elseif data.spell == GetSpellInfo(TSM.spells.prospect) then
-                discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "prospect")
-            end
-        end
-        local totalDiscountedAH = discountedAH * data.quantity
-        
-        -- Get vendor value
-        local vendorSell = 0
-        local itemInfo = {TSMAPI:GetSafeItemInfo(data.itemString)}
-        if #itemInfo >= 11 then
-            vendorSell = itemInfo[11] or 0
-        end
-        local totalVendorValue = vendorSell * data.quantity
-        local hasVendorValue = vendorSell > 0
-        
-        -- Get destruction value
-        local destructionValue = TSM:GetDestroyValue(data.itemString, data.spell) or 0
-        local totalDestructionValue = destructionValue * data.numDestroys
-        local hasDestructionValue = destructionValue > 0
-        
-        -- Check if soulbound
-        local isSoulbound = private:IsItemSoulbound(data.bag, data.slot)
-        
-        -- Match the same logic as GetRecommendation function
-        local shouldShow = false
-        
-        if isSoulbound then
-            -- Soulbound: only show if we have destruction data AND it's better than vendor
-            shouldShow = hasDestructionValue and totalDestructionValue > totalVendorValue
-        else
-            -- Not soulbound: require auction data AND destruction is best option
-            if not hasAuctionValue then
-                shouldShow = false -- Don't show items with no auction data
-            else
-                shouldShow = hasDestructionValue and totalDestructionValue > math.max(totalDiscountedAH, totalVendorValue)
-            end
-        end
-        
-        if shouldShow then
-            tinsert(filteredData, data)
-        end
-    end
-    stData = filteredData
-end
+	if TSM.db.profile.showOnlyDestroy then
+		local filteredData = {}
+		for _, data in ipairs(stData) do
+			local manualOverride = TSM:GetManualOverride(data.itemString)
+			
+			-- In Destroy Only mode, show items that are either:
+			-- 1. Manually set to destroy OR
+			-- 2. Meet the normal destruction criteria (and not manually set to something else)
+			if manualOverride == "destroy" then
+				-- Always show items manually set to destroy
+				tinsert(filteredData, data)
+			else
+				-- Calculate values directly without relying on cache
+				local auctionValueFunc = TSMAPI:ParseCustomPrice("DBMarket")
+				local auctionValue = auctionValueFunc and auctionValueFunc(data.itemString) or 0
+				local hasAuctionValue = auctionValue > 0
+				
+				-- Get discounted AH value
+				local discountedAH = auctionValue
+				if hasAuctionValue then
+					if data.spell == GetSpellInfo(TSM.spells.disenchant) then
+						discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "disenchant")
+					elseif data.spell == GetSpellInfo(TSM.spells.milling) then
+						discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "milling") 
+					elseif data.spell == GetSpellInfo(TSM.spells.prospect) then
+						discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "prospect")
+					end
+				end
+				local totalDiscountedAH = discountedAH * data.quantity
+				
+				-- Get vendor value
+				local vendorSell = 0
+				local itemInfo = {TSMAPI:GetSafeItemInfo(data.itemString)}
+				if #itemInfo >= 11 then
+					vendorSell = itemInfo[11] or 0
+				end
+				local totalVendorValue = vendorSell * data.quantity
+				local hasVendorValue = vendorSell > 0
+				
+				-- Get destruction value
+				local destructionValue = TSM:GetDestroyValue(data.itemString, data.spell) or 0
+				local totalDestructionValue = destructionValue * data.numDestroys
+				local hasDestructionValue = destructionValue > 0
+				
+				-- Check if soulbound
+				local isSoulbound = private:IsItemSoulbound(data.bag, data.slot)
+				
+				-- If item has manual override set to auction or vendor, don't show in Destroy Only
+				if manualOverride == "auction" or manualOverride == "vendor" then
+					-- Skip items manually set to auction or vendor in Destroy Only mode
+					-- do nothing - don't add to filteredData
+				else
+					-- Use normal logic for other items (auto or no override)
+					local shouldShow = false
+					
+					if isSoulbound then
+						-- SOULBOUND ITEMS: Show if destruction is better than vendor
+						shouldShow = hasDestructionValue and totalDestructionValue > totalVendorValue
+					else
+						-- Not soulbound: Show if we have destruction value AND it's better than other options
+						if TSM.db.profile.enableSuggestions then
+							-- With suggestions enabled, use the original logic
+							shouldShow = hasDestructionValue and totalDestructionValue > math.max(totalDiscountedAH, totalVendorValue)
+						else
+							-- With suggestions disabled, be more permissive in Destroy Only mode
+							shouldShow = hasDestructionValue
+						end
+					end
+					
+					if shouldShow then
+						tinsert(filteredData, data)
+					end
+				end
+			end
+		end
+		stData = filteredData
+	end
     
-    -- Sort data
+    -- Sort data (existing code remains the same)
     if sortBy == "suggestion" then
         table.sort(stData, function(a, b)
             -- Calculate recommendation values directly instead of relying on cache
@@ -462,19 +480,35 @@ end)
     
     local handlers = {
     OnClick = function(_, data, self, button)
-        if not data then return end
-        if button == "RightButton" then
-            if IsShiftKeyDown() then
-                TSM.db.global.ignore[data.itemString] = true
-                TSM:Printf(L["Ignoring all %s permanently. You can undo this in the Destroying options."], data.link)
-                TSM.Options:UpdateIgnoreST()
-            else
-                private.ignore[data.itemString] = true
-                TSM:Printf(L["Ignoring all %s this session (until your UI is reloaded)."], data.link)
-            end
-            private:UpdateST()
+    if not data then return end
+    
+    if button == "LeftButton" and IsShiftKeyDown() then
+        -- Shift+Left click: Cycle manual override
+        local currentAction = private:GetCurrentRecommendedAction(data)
+        local newAction = TSM:CycleManualOverride(data.itemString, currentAction)
+        
+        local actionTexts = {
+            destroy = "Destroy",
+            auction = "Sell on AH", 
+            vendor = "Vendor",
+            auto = "Auto (Default)"
+        }
+        
+        TSM:Printf("Manual override for %s: %s", data.link, actionTexts[newAction] or "Auto")
+        private:UpdateST(true)
+        
+    elseif button == "RightButton" then
+        if IsShiftKeyDown() then
+            TSM.db.global.ignore[data.itemString] = true
+            TSM:Printf(L["Ignoring all %s permanently. You can undo this in the Destroying options."], data.link)
+            TSM.Options:UpdateIgnoreST()
+        else
+            private.ignore[data.itemString] = true
+            TSM:Printf(L["Ignoring all %s this session (until your UI is reloaded)."], data.link)
         end
-    end,
+        private:UpdateST()
+    end
+end,
     OnEnter = function(_, data, self)
         if not data then return end
         if not GameTooltip then
@@ -503,7 +537,7 @@ end)
         
         -- Check cache (1 second timeout) and skip cache if discounts recently changed
         local now = GetTime()
-        local useCached = cache[cacheKey] and cache[cacheKey].time > now - 1 and not private.discountSettingsChanged
+        local useCached = cache[cacheKey] and not private.discountSettingsChanged
         
         if useCached then
             -- Use cached data
@@ -523,11 +557,24 @@ end)
                 GameTooltip:AddDoubleLine("Auction House Value:", TSMAPI:FormatTextMoney(cached.totalAuctionValue), 1, 1, 1, 1, 1, 1)
                 
                 -- ALWAYS show discounted AH value when it exists
-                if discountedAH < (cached.auctionValue or 0) then
-                    GameTooltip:AddDoubleLine("  Realistic AH Value:", TSMAPI:FormatTextMoney(totalDiscountedAH), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
-                else
-                    GameTooltip:AddDoubleLine("  Current AH Value:", TSMAPI:FormatTextMoney(totalDiscountedAH), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
-                end
+				if discountedAH < (cached.auctionValue or 0) then
+					GameTooltip:AddDoubleLine("  Realistic AH Value:", TSMAPI:FormatTextMoney(totalDiscountedAH), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
+					
+					-- ADD THIS: Show scan data age for cached data too
+					local ageInSeconds = TSM:GetDataAge(itemString)
+					local ageCategory, ageText = TSM:GetDataAgeCategory(ageInSeconds)
+					local ageColor = ageCategory == "fresh" and "|cFF00FF00" or (ageCategory == "warning" and "|cFFFFFF00" or "|cFFFF0000")
+					GameTooltip:AddDoubleLine("  Scan Data Age:", ageColor .. ageText .. "|r", 0.7, 0.7, 0.7, 0.8, 0.8, 0.8)
+				else
+					GameTooltip:AddDoubleLine("  Current AH Value:", TSMAPI:FormatTextMoney(totalDiscountedAH), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
+					
+					-- Also show age for current values in cached section
+					local ageInSeconds = TSM:GetDataAge(itemString)
+					local ageCategory, ageText = TSM:GetDataAgeCategory(ageInSeconds)
+					local ageColor = ageCategory == "fresh" and "|cFF00FF00" or (ageCategory == "warning" and "|cFFFFFF00" or "|cFFFF0000")
+					GameTooltip:AddDoubleLine("  Scan Data Age:", ageColor .. ageText .. "|r", 0.7, 0.7, 0.7, 0.8, 0.8, 0.8)
+				end
+				
                 
                 if quantity > 1 then
                     GameTooltip:AddDoubleLine("  (per item):", TSMAPI:FormatTextMoney(cached.auctionValue), 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
@@ -659,35 +706,43 @@ end)
             }
             
             -- Show Auction House Values (Raw and Discounted)
-            if hasAuctionValue and auctionValue and auctionValue > 0 then
-                discountedAH = discountedAH or auctionValue  -- Fallback if nil
-                discountedAH = max(0, discountedAH)  -- Ensure not negative
-                
-                totalDiscountedAH = discountedAH * quantity
-                totalDiscountedAH = max(0, totalDiscountedAH)
-                
-                -- Show raw AH value
-                GameTooltip:AddDoubleLine("Auction House Value:", TSMAPI:FormatTextMoney(totalAuctionValue), 1, 1, 1, 1, 1, 1)
-                
-                -- ALWAYS show discounted AH value when it exists, even if same as raw
-                -- Only show as "Realistic" if it's actually discounted
-                if math.abs(discountedAH - auctionValue) > 0.01 then
-                    GameTooltip:AddDoubleLine("  Realistic AH Value:", TSMAPI:FormatTextMoney(totalDiscountedAH), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
-                else
-                    GameTooltip:AddDoubleLine("  Current AH Value:", TSMAPI:FormatTextMoney(totalDiscountedAH), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
-                end
-                
-                if quantity > 1 then
-                    GameTooltip:AddDoubleLine("  (per item):", TSMAPI:FormatTextMoney(auctionValue), 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
-                    if math.abs(discountedAH - auctionValue) > 0.01 then
-                        GameTooltip:AddDoubleLine("  (realistic per item):", TSMAPI:FormatTextMoney(discountedAH), 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
-                    else
-                        GameTooltip:AddDoubleLine("  (current per item):", TSMAPI:FormatTextMoney(discountedAH), 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
-                    end
-                end
-            else
-                GameTooltip:AddDoubleLine("Auction House Value:", "|cFF888888No Data|r", 1, 1, 1, 0.5, 0.5, 0.5)
-            end
+			if hasAuctionValue and auctionValue and auctionValue > 0 then
+				discountedAH = discountedAH or auctionValue  -- Fallback if nil
+				discountedAH = max(0, discountedAH)  -- Ensure not negative
+				
+				totalDiscountedAH = discountedAH * quantity
+				totalDiscountedAH = max(0, totalDiscountedAH)
+				
+				-- Get scan data age information
+				local ageInSeconds = TSM:GetDataAge(itemString)
+				local ageCategory, ageText = TSM:GetDataAgeCategory(ageInSeconds)
+				local ageColor = ageCategory == "fresh" and "|cFF00FF00" or (ageCategory == "warning" and "|cFFFFFF00" or "|cFFFF0000")
+				
+				-- Show raw AH value
+				GameTooltip:AddDoubleLine("Auction House Value:", TSMAPI:FormatTextMoney(totalAuctionValue), 1, 1, 1, 1, 1, 1)
+				
+				-- ALWAYS show discounted AH value when it exists
+				if math.abs(discountedAH - auctionValue) > 0.01 then
+					GameTooltip:AddDoubleLine("  Realistic AH Value:", TSMAPI:FormatTextMoney(totalDiscountedAH), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
+					-- NEW: Show scan data age right after realistic value
+					GameTooltip:AddDoubleLine("  Scan Data Age:", ageText, 0.7, 0.7, 0.7, 0.8, 0.8, 0.8)
+				else
+					GameTooltip:AddDoubleLine("  Current AH Value:", TSMAPI:FormatTextMoney(totalDiscountedAH), 0.8, 0.8, 0.8, 0.8, 0.8, 0.8)
+					-- Also show age for current values
+					GameTooltip:AddDoubleLine("  Scan Data Age:", ageText, 0.7, 0.7, 0.7, 0.8, 0.8, 0.8)
+				end
+				
+				if quantity > 1 then
+					GameTooltip:AddDoubleLine("  (per item):", TSMAPI:FormatTextMoney(auctionValue), 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
+					if math.abs(discountedAH - auctionValue) > 0.01 then
+						GameTooltip:AddDoubleLine("  (realistic per item):", TSMAPI:FormatTextMoney(discountedAH), 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
+					else
+						GameTooltip:AddDoubleLine("  (current per item):", TSMAPI:FormatTextMoney(discountedAH), 0.6, 0.6, 0.6, 0.6, 0.6, 0.6)
+					end
+				end
+			else
+				GameTooltip:AddDoubleLine("Auction House Value:", "|cFF888888No Data|r", 1, 1, 1, 0.5, 0.5, 0.5)
+			end
             
             -- Show Vendor Value
             if hasVendorValue then
@@ -749,10 +804,20 @@ end)
             end
         end
         
-        GameTooltip:AddLine(" ")
+         GameTooltip:AddLine(" ")
+			local manualOverride = TSM:GetManualOverride(data.itemString)
+			if manualOverride then
+				local overrideTexts = {
+					destroy = "|cFF00FF00Destroy|r",
+					auction = "|cFFFFFF00Sell on AH|r", 
+					vendor = "|cFFFF8000Vendor|r"
+				}
+				GameTooltip:AddLine("Manual Override: " .. (overrideTexts[manualOverride] or manualOverride), 1, 1, 1)
+			end
         local color = TSMAPI.Design:GetInlineColor("link")
         GameTooltip:AddLine(format(L["%sRight-Click|r to ignore this item for this session. Hold %sshift|r to ignore permanently. You can remove items from permanent ignore in the Destroying options."], color, color), 1, 1, 1, 1, true)
-        private:AddAgeToTooltip(cache[cacheKey], GameTooltip)
+        GameTooltip:AddLine(format("%sShift+Left-Click|r to cycle manual override", color), 1, 1, 1, 1, true)
+		private:AddAgeToTooltip(cache[cacheKey], GameTooltip)
         GameTooltip:Show()
     end,
     OnLeave = function()
@@ -999,6 +1064,22 @@ function private:GetRecommendation(cached, data)
     if not TSM.db.profile.enableSuggestions then
         return "Make Your Own Decision", {r = 0.5, g = 0.5, b = 0.5}
     end
+    
+    -- Check for manual override first
+    local manualOverride = TSM:GetManualOverride(data.itemString)
+    if manualOverride and manualOverride ~= "auto" then
+        local overrideTexts = {
+            destroy = "Destroy (Manual Override)",
+            auction = "Sell on AH (Manual Override)",
+            vendor = "Vendor (Manual Override)"
+        }
+        local colors = {
+            destroy = {r = 0, g = 1, b = 0},
+            auction = {r = 1, g = 1, b = 0}, 
+            vendor = {r = 1, g = 0.5, b = 0}
+        }
+        return overrideTexts[manualOverride] or "Manual Override", colors[manualOverride] or {r = 0.5, g = 0.5, b = 0.5}
+    end
 	
     local isSoulbound = cached.isSoulbound
     if isSoulbound then
@@ -1088,5 +1169,56 @@ function private:GetRecommendation(cached, data)
         return "Destroy", {r = 0, g = 1, b = 0}
     else
         return "Vendor", {r = 1, g = 0.5, b = 0}
+    end
+end
+
+function private:GetCurrentRecommendedAction(data)
+    -- Calculate values to determine what would be auto-recommended
+    local auctionValueFunc = TSMAPI:ParseCustomPrice("DBMarket")
+    local auctionValue = auctionValueFunc and auctionValueFunc(data.itemString) or 0
+    local totalAuctionValue = auctionValue * data.quantity
+    
+    -- Get discounted AH value
+    local discountedAH = auctionValue
+    if data.spell == GetSpellInfo(TSM.spells.disenchant) then
+        discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "disenchant")
+    elseif data.spell == GetSpellInfo(TSM.spells.milling) then
+        discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "milling") 
+    elseif data.spell == GetSpellInfo(TSM.spells.prospect) then
+        discountedAH = TSM:GetDiscountedAuctionValue(data.itemString, "prospect")
+    end
+    local totalDiscountedAH = discountedAH * data.quantity
+    
+    -- Get vendor value
+    local vendorSell = 0
+    local itemInfo = {TSMAPI:GetSafeItemInfo(data.itemString)}
+    if #itemInfo >= 11 then
+        vendorSell = itemInfo[11] or 0
+    end
+    local totalVendorValue = vendorSell * data.quantity
+    
+    -- Get destruction value
+    local destructionValue = TSM:GetDestroyValue(data.itemString, data.spell) or 0
+    local totalDestructionValue = destructionValue * data.numDestroys
+    
+    -- Check if soulbound
+    local isSoulbound = private:IsItemSoulbound(data.bag, data.slot)
+    
+    -- Determine best action
+    if isSoulbound then
+        if totalDestructionValue > totalVendorValue then
+            return "destroy"
+        else
+            return "vendor"
+        end
+    else
+        local bestValue = math.max(totalDiscountedAH, totalVendorValue, totalDestructionValue)
+        if bestValue == totalDiscountedAH then
+            return "auction"
+        elseif bestValue == totalDestructionValue then
+            return "destroy"
+        else
+            return "vendor"
+        end
     end
 end
