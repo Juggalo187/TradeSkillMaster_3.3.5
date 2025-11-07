@@ -653,7 +653,6 @@ do
 			status.callbackHandler = callbackHandler
 		
 			QueryAuctionItems("", "", "", nil, nil, nil, nil, nil, nil, true)
-			
 			scanFrame.num = 0
 			scanFrame.tries = 3
 			dataAvailableFrame.totalDelay = 20

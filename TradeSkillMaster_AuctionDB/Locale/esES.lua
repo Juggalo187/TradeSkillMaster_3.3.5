@@ -1,4 +1,4 @@
--- ------------------------------------------------------------------------------ --
+L[" - %s left"] = " - 剩余%s"-- ------------------------------------------------------------------------------ --
 --                           TradeSkillMaster_AuctionDB                           --
 --           http://www.curse.com/addons/wow/tradeskillmaster_auctiondb           --
 --                                                                                --
@@ -89,4 +89,4 @@ L["%s ago"] = "hace %s"
 -- L["You can filter the results by item subtype by using this dropdown. For example, if you want to search for all herbs, you would select \"Trade Goods\" in the item type dropdown and \"Herbs\" in this dropdown."] = ""
 -- L["You can filter the results by item type by using this dropdown. For example, if you want to search for all herbs, you would select \"Trade Goods\" in this dropdown and \"Herbs\" as the subtype filter."] = ""
 -- L["You can use this page to lookup an item or group of items in the AuctionDB database. Note that this does not perform a live search of the AH."] = ""
- 
+L[" - %s left"] = " - %s restante"

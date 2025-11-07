@@ -89,4 +89,4 @@ L["Use the search box and category filters above to search the AuctionDB data."]
 L["You can filter the results by item subtype by using this dropdown. For example, if you want to search for all herbs, you would select \"Trade Goods\" in the item type dropdown and \"Herbs\" in this dropdown."] = "이 드롭다운을 사용하여 하위 아이템 유형 필터링할 수 있습니다. 예를 들어 모든 약초를 검색하고자 한다면, 아이템 유형 필터 드롭다운에서 \\\"직업 용품\\\"을 선택하고 이 드롭다운에서 \\\"약초\\\"를 선택합니다." -- Needs review
 L["You can filter the results by item type by using this dropdown. For example, if you want to search for all herbs, you would select \"Trade Goods\" in this dropdown and \"Herbs\" as the subtype filter."] = "이 드롭다운을 사용하여 아이템 유형을 필터링할 수 있습니다. 예를 들어 모든 약초를 검색하고자 한다면, 이 드롭다운에서 \\\"직업 용품\\\"을 선택하고 하위 아이템 유형 필터에서 \\\"약초\\\"를 선택합니다." -- Needs review
 L["You can use this page to lookup an item or group of items in the AuctionDB database. Note that this does not perform a live search of the AH."] = "이 페이지에서 AuctionDB의 데이터베이스에 있는 아이템 또는 아이템 그룹을 살펴보실 수 있습니다. 경매장의 실시간 검색을 실행하지는 않는다는 점을 명심하기 바랍니다."
- 
+L[" - %s left"] = " - %s 남음"

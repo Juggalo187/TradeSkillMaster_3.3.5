@@ -89,4 +89,4 @@ L["Use the search box and category filters above to search the AuctionDB data."]
 L["You can filter the results by item subtype by using this dropdown. For example, if you want to search for all herbs, you would select \"Trade Goods\" in the item type dropdown and \"Herbs\" in this dropdown."] = "你可以用次要類別的下拉式選單來過濾結果，例如如果只要找藥草，你需要選擇交易貨品種類後，再選擇藥草這個次類別。"
 L["You can filter the results by item type by using this dropdown. For example, if you want to search for all herbs, you would select \"Trade Goods\" in this dropdown and \"Herbs\" as the subtype filter."] = "你可以用類別的下拉式選單來過濾結果，例如如果要找所有的藥草，你需要選擇交易貨品種類後，再選擇藥草這個次類別。"
 L["You can use this page to lookup an item or group of items in the AuctionDB database. Note that this does not perform a live search of the AH."] = "在AuctionDB資料庫你可以使用這頁面查找物品或是在物品裡的群組。注意：這無法保證是在拍賣行的即時搜尋。"
- 
+L[" - %s left"] = " - 剩餘%s"

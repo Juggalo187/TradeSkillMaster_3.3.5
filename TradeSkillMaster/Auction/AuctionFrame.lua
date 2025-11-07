@@ -41,14 +41,13 @@ function private:CreateTSMAHTab(moduleName, callbackShow, callbackHide)
 	tab:Hide()
 	tab:SetID(n)
 	tab:SetText(TSMAPI.Design:GetInlineColor("link2")..moduleName.."|r")
-	tab:SetNormalFontObject(GameFontHighlightSmall)
-	tab.isTSMTab = moduleName
-	if _G["AuctionFrameTab"..n-1] then
-		local xOffset = (n-1) * 43 - 18
-		tab:SetPoint("TOPLEFT", AuctionFrame, "BOTTOMLEFT", 0 + xOffset, -25)
+	if GameFontHighlightSmzall then
+		tab:SetNormalFontObject(GameFontHighlightSmzall)
 	else
-		tab:SetPoint("TOPLEFT", AuctionFrame, "BOTTOMLEFT", 15, -25)
+		tab:SetNormalFontObject(GameFontNormalSmall)
 	end
+	tab:SetPoint("LEFT", _G["AuctionFrameTab"..n-1], "RIGHT", -8, 0)
+	tab.isTSMTab = moduleName
 	tab:Show()
 	PanelTemplates_SetNumTabs(AuctionFrame, n)
 	PanelTemplates_EnableTab(AuctionFrame, n)
