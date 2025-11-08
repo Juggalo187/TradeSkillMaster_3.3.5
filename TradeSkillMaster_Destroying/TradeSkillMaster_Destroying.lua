@@ -377,38 +377,24 @@ end
 
 -- Helper function to determine required skill level for disenchanting
 function private:GetRequiredDisenchantSkill(quality, itemLevel, itemClass, itemSubClass)
-    -- Simplified skill requirements - WoW 3.3.5
-    if quality == 2 then -- Uncommon (Green)
-        if itemLevel <= 20 then return 1 end
-        if itemLevel <= 25 then return 25 end
-        if itemLevel <= 30 then return 50 end
-        if itemLevel <= 35 then return 75 end
-        if itemLevel <= 40 then return 100 end
-        if itemLevel <= 45 then return 125 end
-        if itemLevel <= 50 then return 150 end
-        if itemLevel <= 55 then return 175 end
-        if itemLevel <= 60 then return 200 end
-        if itemLevel <= 65 then return 225 end
-        if itemLevel <= 99 then return 275 end
-        return 300
-    elseif quality == 3 then -- Rare (Blue)
-        if itemLevel <= 30 then return 75 end
-        if itemLevel <= 35 then return 100 end
-        if itemLevel <= 40 then return 125 end
-        if itemLevel <= 45 then return 150 end
-        if itemLevel <= 50 then return 175 end
-        if itemLevel <= 55 then return 200 end
-        if itemLevel <= 60 then return 225 end
-        if itemLevel <= 65 then return 250 end
-        if itemLevel <= 99 then return 275 end
-        return 300
-    elseif quality == 4 then -- Epic (Purple)
-        if itemLevel <= 65 then return 275 end
-        if itemLevel <= 99 then return 300 end
-        return 325
-    end
-    
-    return 1 -- Default minimum
+    -- Skill requirements based SOLELY on item level (not quality)
+    if itemLevel <= 20 then return 1 end
+    if itemLevel <= 25 then return 25 end
+    if itemLevel <= 30 then return 50 end
+    if itemLevel <= 35 then return 75 end
+    if itemLevel <= 40 then return 100 end
+    if itemLevel <= 45 then return 125 end
+    if itemLevel <= 50 then return 150 end
+    if itemLevel <= 55 then return 175 end
+    if itemLevel <= 60 then return 200 end
+    if itemLevel <= 65 then return 225 end
+    if itemLevel <= 99 then return 275 end
+    if itemLevel <= 120 then return 300 end
+    if itemLevel <= 151 then return 325 end
+    if itemLevel <= 164 then return 350 end
+    if itemLevel <= 200 then return 375 end
+    -- For WotLK content, 350 is typically the max required
+    return 1 -- Default minimum (fallback)
 end
 
 -- determines if an item is millable or prospectable
