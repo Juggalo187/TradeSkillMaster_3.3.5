@@ -73,6 +73,7 @@ L["Run Full Scan"] = true
 L["Run GetAll Scan"] = true
 L["Running query..."] = true
 L["Scan Selected Groups"] = true
+L["Scanning %d / %d (Page 1 / ?)"] = true
 L["Scanning %d / %d (Page %d / %d)"] = true
 L["Scanning page %s/%s"] = true
 L["Scanning the auction house in game is no longer necessary!"] = true
