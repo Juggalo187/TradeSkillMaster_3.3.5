@@ -125,7 +125,7 @@ function Inventory:GetItemSources(crafter, neededMats)
 	local items = {}
 	for itemString, quantity in pairs(neededMats) do
 		if TSMAPI:GetVendorCost(itemString) then
-			local vendorNeed = quantity - ((crafterBags[itemString] or 0) + (crafterMail[itemString] or 0) + (crafterBank[itemString] or 0))
+			local vendorNeed = quantity - (crafterBags[itemString] or 0)
 			if vendorNeed > 0 then
 				items[itemString] = vendorNeed
 			end
