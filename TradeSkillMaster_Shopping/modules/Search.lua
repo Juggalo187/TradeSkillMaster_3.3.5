@@ -154,7 +154,7 @@ function private:CreateSearchBar(parent)
 	eb:SetScript("OnEditFocusLost", OnEditFocusLost)
 	eb:SetScript("OnEnter", OnEnter)
 	eb:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	eb:SetScript("OnUpdate", OnUpdate)
+	--eb:SetScript("OnUpdate", OnUpdate)
 	searchBarFrame.editBox = eb
 	
 	local btn = TSMAPI.GUI:CreateButton(searchBarFrame, 20)
@@ -284,7 +284,7 @@ end
 
 function private:UpdateMode()
 	private.searchBar.editBox:SetText("")
-	if private.mode == "nomal" then
+	if private.mode == "normal" then
 		TSM.Util:ShowSearchFrame(nil, L["% Market Value"], true)
 	elseif private.mode == "destroy" then
 		TSM.Util:ShowSearchFrame(true, L["% Target Value"], true)
