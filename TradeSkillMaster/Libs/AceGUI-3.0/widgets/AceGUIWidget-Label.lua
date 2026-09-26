@@ -1,13 +1,9 @@
---[[-----------------------------------------------------------------------------
-Label Widget
-Displays text and optionally an icon.
--------------------------------------------------------------------------------]]
-local Type, Version = "Label", 23
+local Type, Version = "Label", 20
 local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 if not AceGUI or (AceGUI:GetWidgetVersion(Type) or 0) >= Version then return end
 
 -- Lua APIs
-local max, select, pairs = math.max, select, pairs
+local max, select = math.max, select
 
 -- WoW APIs
 local CreateFrame, UIParent = CreateFrame, UIParent
@@ -17,11 +13,10 @@ local CreateFrame, UIParent = CreateFrame, UIParent
 -- GLOBALS: GameFontHighlightSmall
 
 --[[-----------------------------------------------------------------------------
-Support functions
+Scripts
 -------------------------------------------------------------------------------]]
 
 local function UpdateImageAnchor(self)
-	if self.resizing then return end
 	local frame = self.frame
 	local width = frame.width or frame:GetWidth() or 0
 	local image = self.image
@@ -35,26 +30,22 @@ local function UpdateImageAnchor(self)
 		local imagewidth = image:GetWidth()
 		if (width - imagewidth) < 200 or (label:GetText() or "") == "" then
 			-- image goes on top centered when less than 200 width for the text, or if there is no text
-			image:SetPoint("TOP")
-			label:SetPoint("TOP", image, "BOTTOM")
-			label:SetPoint("LEFT")
-			label:SetWidth(width)
+			image:SetPoint("TOP", frame, "TOP", 0, 0)
+			label:SetPoint("TOP", image, "BOTTOM", 0, 0)
+			label:SetPoint("LEFT", frame, "LEFT", 0, 0)
+			label:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
 			height = image:GetHeight() + label:GetHeight()
 		else
 			-- image on the left
-			image:SetPoint("TOPLEFT")
-			if image:GetHeight() > label:GetHeight() then
-				label:SetPoint("LEFT", image, "RIGHT", 4, 0)
-			else
-				label:SetPoint("TOPLEFT", image, "TOPRIGHT", 4, 0)
-			end
-			label:SetWidth(width - imagewidth - 4)
+			image:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+			label:SetPoint("TOPLEFT", image, "TOPRIGHT", 4, 0)
+			label:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
 			height = max(image:GetHeight(), label:GetHeight())
 		end
 	else
 		-- no image shown
-		label:SetPoint("TOPLEFT")
-		label:SetWidth(width)
+		label:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+		label:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
 		height = label:GetHeight()
 	end
 	
@@ -69,30 +60,23 @@ Methods
 -------------------------------------------------------------------------------]]
 local methods = {
 	["OnAcquire"] = function(self)
-		-- set the flag to stop constant size updates
-		self.resizing = true
-		-- height is set dynamically by the text and image size
+		self:SetHeight(18)
 		self:SetWidth(200)
-		self:SetText()
+		self:SetText("")
 		self:SetImage(nil)
 		self:SetImageSize(16, 16)
 		self:SetColor()
-		self:SetFontObject()
-
-		-- reset the flag
-		self.resizing = nil
-		-- run the update explicitly
-		UpdateImageAnchor(self)
+		self.label:SetFontObject(nil)
+		self.label:SetFont(GameFontHighlightSmall:GetFont())
 	end,
 
-	-- ["OnRelease"] = nil,
-
-	["OnWidthSet"] = function(self, width)
-		UpdateImageAnchor(self)
+	["OnRelease"] = function(self)
+		self.frame:ClearAllPoints()
+		self.frame:Hide()
 	end,
 
 	["SetText"] = function(self, text)
-		self.label:SetText(text)
+		self.label:SetText(text or "")
 		UpdateImageAnchor(self)
 	end,
 
@@ -103,13 +87,18 @@ local methods = {
 		self.label:SetVertexColor(r, g, b)
 	end,
 
+	["OnWidthSet"] = function(self, width)
+		if self.resizing then return end
+		UpdateImageAnchor(self)
+	end,
+
 	["SetImage"] = function(self, path, ...)
 		local image = self.image
 		image:SetTexture(path)
 		
 		if image:GetTexture() then
 			self.imageshown = true
-			local n = select("#", ...)
+			local n = select('#', ...)
 			if n == 4 or n == 8 then
 				image:SetTexCoord(...)
 			else
@@ -126,7 +115,7 @@ local methods = {
 	end,
 
 	["SetFontObject"] = function(self, font)
-		self:SetFont((font or GameFontHighlightSmall):GetFont())
+		self.label:SetFontObject(font or GameFontHighlightSmall)
 	end,
 
 	["SetImageSize"] = function(self, width, height)
@@ -135,8 +124,7 @@ local methods = {
 		UpdateImageAnchor(self)
 	end,
 }
-
---[[-----------------------------------------------------------------------------
+	--[[-----------------------------------------------------------------------------
 Constructor
 -------------------------------------------------------------------------------]]
 local function Constructor()
@@ -144,6 +132,8 @@ local function Constructor()
 	frame:Hide()
 
 	local label = frame:CreateFontString(nil, "BACKGROUND", "GameFontHighlightSmall")
+	label:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+	label:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
 	label:SetJustifyH("LEFT")
 	label:SetJustifyV("TOP")
 
@@ -159,8 +149,10 @@ local function Constructor()
 	for method, func in pairs(methods) do
 		widget[method] = func
 	end
+	frame.obj, label.obj, image.obj = widget, widget, widget
 
-	return AceGUI:RegisterAsWidget(widget)
+	AceGUI:RegisterAsWidget(widget)
+	return widget
 end
 
 AceGUI:RegisterWidgetType(Type, Constructor, Version)
