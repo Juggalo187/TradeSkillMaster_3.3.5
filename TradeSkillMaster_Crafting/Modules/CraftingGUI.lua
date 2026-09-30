@@ -1261,6 +1261,7 @@ function GUI:CreateCraftInfoFrame(parent)
 	createBtn:SetHeight(20)
 	createBtn:SetScript("OnClick", function() GUI:CastTradeSkill(frame.index, buttonsFrame.inputBox:GetNumber()) end)
 	buttonsFrame.createBtn = createBtn
+	createBtn:SetText(CREATE)
 
 	local createAllBtn = TSMAPI.GUI:CreateButton(buttonsFrame, 15)
 	createAllBtn:SetText(CREATE_ALL)
